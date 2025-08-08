@@ -255,14 +255,11 @@ export class StreamUpdater {
     // Loop Streams
     let i = this.streams.length;
     while (i--) {
-      if (
-        (
-          this.streams[i] as unknown as ActiveDefinitions.IContractData
-        )._id?.indexOf(":data") > -1
-      ) {
-        this.handleContractDataStream(
-          this.streams[i] as unknown as ActiveDefinitions.IContractData
-        );
+
+      const streamCast = this.streams[i] as unknown as ActiveDefinitions.IContractData;
+
+      if (streamCast._id?.indexOf(":data") > -1) {
+        this.handleContractDataStream(streamCast);
         continue;
       }
 

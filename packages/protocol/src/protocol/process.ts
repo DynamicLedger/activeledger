@@ -430,7 +430,13 @@ export class Process extends EventEmitter {
             throw new Error("Namespace not found");
           }
 
-          this.contractId = this.entry.$tx.$contract.split("@")[0];
+          // Skip is default contract, they don't have contract data
+          if (!this.isDefault) {
+            // Make sure we are using an ID not a name
+            this.contractId = this.resolveContractID(
+              this.entry.$tx.$contract.split("@")[0]
+            );
+          }
 
           if (contractVersion) {
             contract = contractVersion;
@@ -565,7 +571,7 @@ export class Process extends EventEmitter {
         // [umid]:volatile  : Data that can be lost
         // [umid]:data      : Data directly linked to a contract, umid should always be a contract ID
 
-        // TODO these do 3 read requests to the database, Lets combine
+        // TODO: these do 3 read requests to the database, Lets combine
 
         try {
           // Check the input revisions
@@ -575,10 +581,11 @@ export class Process extends EventEmitter {
           // Check the output revisions
           const outputStreams: ActiveDefinitions.LedgerStream[] =
             await this.permissionChecker.process(this.outputs, false);
+
           this.process(
             inputStreams,
             outputStreams,
-            await this.getContractDate(contractData)
+            await this.getContractData(contractData)
           );
         } catch (error) {
           // Replay from here?
@@ -669,10 +676,11 @@ export class Process extends EventEmitter {
           // No input streams, Maybe Output
           const outputStreams: ActiveDefinitions.LedgerStream[] =
             await this.permissionChecker.process(this.outputs, false);
+
           this.process(
             [],
             outputStreams,
-            await this.getContractDate(contractData)
+            await this.getContractData(contractData)
           );
         } catch (error) {
           // Forward Error On
@@ -793,19 +801,49 @@ export class Process extends EventEmitter {
   }
 
   /**
+   * Consumes a contract "ID" and makes sure that it is actually an ID and not
+   * a label/name (symlink).
+   *
+   * @private
+   * @param {string} contractID
+   * @returns {string}
+   */
+  private resolveContractID(contractID: string) {
+    // If length is under 64, then it is probably a label, so we should resolve it
+    if (contractID.length === 64) {
+      return contractID;
+    }
+
+    // Resolve the full path to the contract, get rid of symbolic links (labels)
+    const location = fs.realpathSync(
+      `${process.cwd()}/contracts/${this.entry.$tx.$namespace}/${this.entry.$tx.$contract}.js`
+    );
+
+    const pathSplit = location.split("/");
+    contractID = pathSplit[pathSplit.length - 1]
+      .replace(".js", "");
+
+    return contractID;
+  }
+
+  /**
    * Fetches contract data and verifies like a stream
    *
    * @private
    * @param {(ActiveDefinitions.IContractData | undefined | null)} contractData
    * @returns {(Promise<ActiveDefinitions.IContractData | undefined | null>)}
    */
-  private async getContractDate(
+  private async getContractData(
     contractData: ActiveDefinitions.IContractData | undefined | null
   ): Promise<ActiveDefinitions.IContractData | undefined | null> {
     // Default Contracts don't use context and are not available from the database
     if (!contractData && !this.isDefault) {
+
+
       // First we check it exists, If it doesn't we set a cache value to know it is empty
-      if (await this.db.exists(`${this.contractId}:data`)) {
+      const dataExists = await this.db.exists(`${this.contractId}:data`);
+
+      if (dataExists) {
         // Contract data exists deal with it
         try {
           const contractDataStreams = await this.permissionChecker.process(
@@ -1027,6 +1065,7 @@ export class Process extends EventEmitter {
     outputs: ActiveDefinitions.LedgerStream[] = [],
     contractData: ActiveDefinitions.IContractData | undefined | null = undefined
   ): Promise<void> {
+
     try {
       // Transaction should be fully described now (revs etc)
       // we can now broadcast it before voting that way voting rounds will not lock up

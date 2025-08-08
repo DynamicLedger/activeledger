@@ -165,6 +165,7 @@ class Processor {
 
     // Listen for IPC (Interprocess Communication)
     process.on("message", (m: any) => {
+
       switch (m.type) {
         case "setup":
           // Set Database (Do we need to?)
