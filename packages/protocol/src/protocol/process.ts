@@ -21,6 +21,7 @@
  * SOFTWARE.
  */
 
+import { realpathSync } from "fs"
 import { promises as fs } from "fs";
 import { EventEmitter } from "events";
 import { VirtualMachine } from "./vm";
@@ -815,7 +816,7 @@ export class Process extends EventEmitter {
     }
 
     // Resolve the full path to the contract, get rid of symbolic links (labels)
-    const location = fs.realpathSync(
+    const location = realpathSync(
       `${process.cwd()}/contracts/${this.entry.$tx.$namespace}/${this.entry.$tx.$contract}.js`
     );
 
