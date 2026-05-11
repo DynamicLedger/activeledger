@@ -1,0 +1,3 @@
+FROM dynamicledger/activeledger
+
+CMD ["/bin/sh", "/usr/local/bin/testnet-entrypoint"]

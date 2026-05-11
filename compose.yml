@@ -1,0 +1,11 @@
+services:
+  activeledger:
+    image: dynamicledger/activeledger
+    ports:
+     - "5259:5259"
+     - "5260:5260"
+     - "5261:5261"
+    volumes:
+     - ${AL_DATA_PATH}:/activeledger/data:Z
+    working_dir: /activeledger/data
+    user: "${UID}:${GID}"
